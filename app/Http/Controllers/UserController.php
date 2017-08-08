@@ -11,16 +11,14 @@ use Validator;
 use Tymon\JWTAuth\Exceptions\JWTException;
 
 
-class UserController extends ApiController
-{
+class UserController extends ApiController {
 	/**
 	 * @var \App\Repository\Transformers\UserTransformer
 	 * */
 	protected $userTransformer;
 
 
-	public function __construct(userTransformer $userTransformer)
-	{
+	public function __construct( userTransformer $userTransformer ) {
 
 		$this->userTransformer = $userTransformer;
 
@@ -30,62 +28,60 @@ class UserController extends ApiController
 	/**
 	 * @description: Api user authenticate method
 	 * @author: Adelekan David Aderemi
+	 *
 	 * @param: email, password
+	 *
 	 * @return: Json String response
 	 */
-	public function authenticate(Request $request)
-	{
+	public function authenticate( Request $request ) {
 
-		$rules = array (
+		$rules = array(
 
-			'email' => 'required|email',
+			'email'    => 'required|email',
 			'password' => 'required',
 
 		);
 
-		$validator = Validator::make($request->all(), $rules);
+		$validator = Validator::make( $request->all(), $rules );
 
-		if ($validator-> fails()){
+		if ( $validator->fails() ) {
 
-			return $this->respondValidationError('Fields Validation Failed.', $validator->errors());
+			return $this->respondValidationError( 'Fields Validation Failed.', $validator->errors() );
 
-		}
+		} else {
 
-		else{
+			$user = User::where( 'email', $request['email'] )->first();
 
-			$user = User::where('email', $request['email'])->first();
-
-			if($user){
+			if ( $user ) {
 				$api_token = $user->api_token;
 
-				if ($api_token == NULL){
-					return $this->_login($request['email'], $request['password']);
+				if ( $api_token == null ) {
+					return $this->_login( $request['email'], $request['password'] );
 				}
 
-				try{
+				try {
 
-					$user = JWTAuth::toUser($api_token);
+					$user = JWTAuth::toUser( $api_token );
 
-					return $this->respond([
+					return $this->respond( [
 
-						'status' => 'success',
+						'status'      => 'success',
 						'status_code' => $this->getStatusCode(),
-						'message' => 'Already logged in',
-						'user' => $this->userTransformer->transform($user)
+						'message'     => 'Already logged in',
+						'user'        => $this->userTransformer->transform( $user )
 
-					]);
+					] );
 
-				}catch(JWTException $e){
+				} catch ( JWTException $e ) {
 
-					$user->api_token = NULL;
+					$user->api_token = null;
 					$user->save();
 
-					return $this->respondInternalError("Login Unsuccessful. An error occurred while performing an action!");
+					return $this->respondInternalError( "Login Unsuccessful. An error occurred while performing an action!" );
 
 				}
-			}
-			else{
-				return $this->respondWithError("Invalid Email or Password");
+			} else {
+				return $this->respondWithError( "Invalid Email or Password" );
 			}
 
 		}
@@ -93,71 +89,69 @@ class UserController extends ApiController
 	}
 
 
-	private function _login($email, $password)
-	{
+	private function _login( $email, $password ) {
 
-		$credentials = ['email' => $email, 'password' => $password];
+		$credentials = [ 'email' => $email, 'password' => $password ];
 
 
-		if ( ! $token = JWTAuth::attempt($credentials)) {
+		if ( ! $token = JWTAuth::attempt( $credentials ) ) {
 
-			return $this->respondWithError("User does not exist!");
+			return $this->respondWithError( "User does not exist!" );
 
 		}
 
-		$user = JWTAuth::toUser($token);
+		$user = JWTAuth::toUser( $token );
 
 		$user->api_token = $token;
 		$user->save();
 
-		return $this->respond([
+		return $this->respond( [
 
-			'status' => 'success',
+			'status'      => 'success',
 			'status_code' => $this->getStatusCode(),
-			'message' => 'Login successful!',
-			'data' => $this->userTransformer->transform($user)
+			'message'     => 'Login successful!',
+			'data'        => $this->userTransformer->transform( $user )
 
-		]);
+		] );
 	}
 
 
 	/**
 	 * @description: Api user register method
 	 * @author: Adelekan David Aderemi
+	 *
 	 * @param: lastname, firstname, username, email, password
+	 *
 	 * @return: Json String response
 	 */
-	public function register(Request $request)
-	{
+	public function register( Request $request ) {
 
-		$rules = array (
+		$rules = array(
 
-			'name' => 'required|max:255',
-			'email' => 'required|email|max:255|unique:users',
-			'password' => 'required|min:6|confirmed',
+			'name'                  => 'required|max:255',
+			'email'                 => 'required|email|max:255|unique:users',
+			'password'              => 'required|min:6|confirmed',
 			'password_confirmation' => 'required|min:3'
 
 		);
 
-		$validator = Validator::make($request->all(), $rules);
+		$validator = Validator::make( $request->all(), $rules );
 
-		if ($validator-> fails()){
+		if ( $validator->fails() ) {
 
-			return $this->respondValidationError('Fields Validation Failed.', $validator->errors());
+			return $this->respondValidationError( 'Fields Validation Failed.', $validator->errors() );
 
-		}
+		} else {
 
-		else{
+			$user = User::create( [
 
-			$user = User::create([
+				'name'     => $request['name'],
+				'email'    => $request['email'],
+				'password' => \Hash::make( $request['password'] ),
 
-				'name' => $request['name'],
-				'email' => $request['email'],
-				'password' => \Hash::make($request['password']),
+			] );
 
-			]);
-
-			return $this->_login($request['email'], $request['password']);
+			return $this->_login( $request['email'], $request['password'] );
 
 		}
 
@@ -167,36 +161,37 @@ class UserController extends ApiController
 	/**
 	 * @description: Api user logout method
 	 * @author: Adelekan David Aderemi
+	 *
 	 * @param: null
+	 *
 	 * @return: Json String response
 	 */
-	public function logout($api_token)
-	{
+	public function logout( $api_token ) {
 
-		try{
+		try {
 
-			$user = JWTAuth::toUser($api_token);
+			$user = JWTAuth::toUser( $api_token );
 
-			$user->api_token = NULL;
+			$user->api_token = null;
 
 			$user->save();
 
-			JWTAuth::setToken($api_token)->invalidate();
+			JWTAuth::setToken( $api_token )->invalidate();
 
-			$this->setStatusCode(Res::HTTP_OK);
+			$this->setStatusCode( Res::HTTP_OK );
 
-			return $this->respond([
+			return $this->respond( [
 
-				'status' => 'success',
+				'status'      => 'success',
 				'status_code' => $this->getStatusCode(),
-				'message' => 'Logout successful!',
+				'message'     => 'Logout successful!',
 
-			]);
+			] );
 
 
-		}catch(JWTException $e){
+		} catch ( JWTException $e ) {
 
-			return $this->respondInternalError("An error occurred while performing an action!");
+			return $this->respondInternalError( "An error occurred while performing an action!" );
 
 		}
 
